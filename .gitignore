@@ -208,3 +208,4 @@ __marimo__/
 data/raw_dicom
 data/clean_png/
 data/.DS_Store/
+data/index_summary.csv/
