@@ -207,7 +207,7 @@ marimo/_lsp/
 __marimo__/
 data/raw_dicom
 data/clean_png/
-data/.DS_Store/
+data/.DS_Store
 data/index_summary.csv/
-data/index_summary.csv/
-data/selected_series.csv/
+data/index_summary.csv
+data/selected_series.csv
