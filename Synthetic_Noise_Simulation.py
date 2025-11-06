@@ -121,8 +121,12 @@ def save01(path, arr01):
 
 def add_ldct_like_noise(img01, dose_scale=DOSE_SCALE, read_noise=READ_NOISE):
     # Poisson (shot) noise on normalized "photon" field + small Gaussian readout noise
-    # WIP
-    return
+    photons = np.clip(img01, 1e-6, 1.0)
+    photons = photons / (photons.mean() + 1e-8)
+    lam = photons * dose_scale * 1000.0
+    noisy = np.random.poisson(lam).astype(np.float32) / (dose_scale * 1000.0)
+    noisy += np.random.normal(0, read_noise, size=noisy.shape).astype(np.float32)
+    return np.clip(noisy, 0, 1)
 
 def main():
     patients = [d for d in sorted(os.listdir(CLEAN_ROOT))
