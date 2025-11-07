@@ -61,9 +61,9 @@ Key parameters and tuning
 DOSE_SCALE (default 0.30)
 • Scales the expected photon counts globally. Lower values simulate fewer detected photons = higher relative shot noise.
 • Practical ranges:
-  - 0.10–0.20: aggressive low-dose scans (challenging denoising)
-  - 0.25–0.40: moderate low-dose (typical of many low-dose computed tomography studies
-  - 0.50–1.00: mild noise (closer to NDCT appearance, standard level of radiation exposure)
+  - 0.10-0.20: aggressive low-dose scans (challenging denoising)
+  - 0.25-0.40: moderate low-dose (typical of many low-dose computed tomography studies
+  - 0.50-1.00: mild noise (closer to NDCT appearance, standard level of radiation exposure)
 • Interaction: SNR ∝ sqrt(DOSE_SCALE · N0). Halving DOSE_SCALE drops SNR by ~√2
 • Tuning: select a value that yields a visibly low-dose look but still retains anatomy (start at 0.30 and adjust ±0.05)
 
@@ -71,18 +71,18 @@ READ_NOISE (default 0.002)
 • Additive white Gaussian term approximating electronics/ADC noise after reconstruction.
 • Unlike Poisson, it does not depend on brightness.
 • Practical ranges:
-  - 0.001–0.003: perceptible but secondary to shot noise.
+  - 0.001-0.003: perceptible but secondary to shot noise.
   - >0.005: can start to dominate very dark regions and flatten contrast.
 • Interaction: adds variance independent of intensity, keeps backgrounds from being unnaturally black after Poisson sampling.
 • Tuning: keep small increase only if images look “too clean” in flat regions after applying Poisson.
 
 N0 (implicit 1000 in code)
-• Nominal photon count scale used to construct the Poisson rate λ = (img01_norm) × DOSE_SCALE × N0.
+• Nominal photon count scale used to construct the Poisson rate λ = (img01_norm) x DOSE_SCALE x N0.
 • Global SNR baseline. Larger N0 = higher absolute counts at the same DOSE_SCALE = milder noise.
 • Practical ranges:
-  - 500–1500 is typical for 8-bit.
+  - 500-1500 is typical for 8-bit.
   - If you increase N0 by k×, SNR rises by √k (at fixed DOSE_SCALE).
-• Interaction with DOSE_SCALE: only the product (DOSE_SCALE × N0) really matters for SNR. Consider N0 as the “calibration" and DOSE_SCALE as the “dose”
+• Interaction with DOSE_SCALE: only the product (DOSE_SCALE x N0) really matters for SNR. Consider N0 as the “calibration" and DOSE_SCALE as the “dose”
 • Tuning:
   - Set N0 so that DOSE_SCALE=0.30 produces a "realistic" noise level
   - Vary DOSE_SCALE to simulate different dose settings without touching N0
@@ -91,7 +91,8 @@ Additional notes on normalization & reproducibility
 • Per-slice mean normalization: before Poisson sampling, the image is normalized by its mean to keep dose comparable across slices with different global brightness, this reduces slice-to-slice SNR drift unrelated to anatomy
 • Random seeds: fixed seeds make the noisy realizations deterministic for exact reproducibility. Remove or vary seeds to generate multiple independent noisy pairs per slice for augmentation
 
-Caveats:
+Caveats
+------------------------------------------------------------
 - Image-space surrogate (not sinogram/log space), so it ignores view-dependent and reconstruction-kernel correlations, good for POC , not for exact physics fidelity
 """
 
@@ -109,11 +110,26 @@ random.seed(SEED)
 np.random.seed(SEED)
 
 # Noise control
-DOSE_SCALE = 0.30
+DOSE_SCALE = 0.20
 READ_NOISE  = 0.002
 
+# HU scaling used by the converter (must match Data_Conversion.py)
+HU_MIN, HU_MAX = -1024, 3071
+WINDOW_CENTER = 40
+WINDOW_WIDTH  = 400
+
+def _read16_scaled01(path):
+    arr16 = np.array(Image.open(path), dtype=np.uint16)
+    return arr16.astype(np.float32) / 65535.0
+
+def _window_to_01_from_scaled(x01, center=WINDOW_CENTER, width=WINDOW_WIDTH):
+    hu = x01 * (HU_MAX - HU_MIN) + HU_MIN
+    low, high = center - width / 2.0, center + width / 2.0
+    return np.clip((hu - low) / (high - low), 0.0, 1.0)
+
 def load01(path):
-    return np.asarray(Image.open(path).convert("L"), dtype=np.float32) / 255.0
+    x01 = _read16_scaled01(path)
+    return _window_to_01_from_scaled(x01, center=WINDOW_CENTER, width=WINDOW_WIDTH)
 
 def save01(path, arr01):
     arr8 = (np.clip(arr01, 0, 1) * 255).astype(np.uint8)
