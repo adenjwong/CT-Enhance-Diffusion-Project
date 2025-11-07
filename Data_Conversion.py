@@ -85,8 +85,10 @@ from tqdm import tqdm
 
 SELECT_CSV = "data/selected_series.csv"
 OUT_ROOT = "data/clean_png"
-WINDOW_CENTER = -600  # lung window center
-WINDOW_WIDTH = 1500   # lung window width
+WINDOW_CENTER = 40  # lung window center
+WINDOW_WIDTH = 400   # lung window width
+
+HU_MIN, HU_MAX = -1024, 3071  # typical clinical span
 
 def apply_window(img, center, width):
     low, high = center - width / 2, center + width / 2
@@ -97,14 +99,24 @@ def apply_window(img, center, width):
 def convert_series(series_path, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     dcm_files = sorted([f for f in os.listdir(series_path) if f.endswith(".dcm")])
-    for i, fname in enumerate(tqdm(dcm_files, desc=os.path.basename(series_path))):
+    # Updated tqdm to show patient ID instead of internal series name
+    for i, fname in enumerate(tqdm(
+        dcm_files,
+        desc=os.path.basename(os.path.dirname(os.path.dirname(series_path)))
+    )):
         dcm_path = os.path.join(series_path, fname)
         ds = pydicom.dcmread(dcm_path)
         img = ds.pixel_array.astype(np.float32)
         if hasattr(ds, "RescaleSlope") and hasattr(ds, "RescaleIntercept"):
-            img = img * float(ds.RescaleSlope) + float(ds.RescaleIntercept)
-        img = apply_window(img, WINDOW_CENTER, WINDOW_WIDTH)
-        Image.fromarray(img).save(os.path.join(out_dir, f"slice_{i:04d}.png"))
+            img = img * float(ds.RescaleSlope) + float(ds.RescaleIntercept)  # now in HU
+
+        # Map HU -> uint16 in [0, 65535] (no windowing; avoid saturation)
+        hu = np.clip(img, HU_MIN, HU_MAX)
+        arr16 = np.round((hu - HU_MIN) / (HU_MAX - HU_MIN) * 65535.0).astype(np.uint16)
+
+        # Save 16-bit PNG (mode 'I;16') so later steps can choose any window without clipping
+        Image.fromarray(arr16, mode="I;16").save(os.path.join(out_dir, f"slice_{i:04d}.png"))
+
 
 def main():
     os.makedirs(OUT_ROOT, exist_ok=True)
@@ -122,3 +134,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
