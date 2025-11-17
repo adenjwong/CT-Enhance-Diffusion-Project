@@ -6,6 +6,8 @@ import numpy as np
 import torch, torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision.transforms.functional import to_tensor
+from torchvision.utils import save_image
+from tqdm import tqdm
 
 CLEAN_ROOT = "data/clean_png"
 NOISY_ROOT = "data/noisy_png"
@@ -82,8 +84,6 @@ class TinyUNet(nn.Module):
 
         return torch.sigmoid(self.out(d1))
 
-from torchvision.utils import save_image
-
 def psnr(x, y):
     mse = torch.mean((x - y) ** 2)
     if mse <= 1e-12:
@@ -109,7 +109,9 @@ def main():
 
     for ep in range(1, epochs + 1):
         net.train()
-        for noisy, clean in train_loader:
+        running_loss = 0.0
+        train_bar = tqdm(train_loader, desc=f"Epoch {ep}/{epochs} [train]")
+        for noisy, clean in train_bar:
             noisy = noisy.to(device)
             clean = clean.to(device)
 
@@ -120,15 +122,23 @@ def main():
             loss.backward()
             opt.step()
 
+            running_loss += loss.item()
+            avg_loss = running_loss / (train_bar.n or 1)
+            train_bar.set_postfix(loss=f"{avg_loss:.4f}")
+
         # validation
         net.eval()
         psnrs = []
+        val_bar = tqdm(val_loader, desc=f"Epoch {ep}/{epochs} [val]")
         with torch.no_grad():
-            for noisy, clean in val_loader:
+            for noisy, clean in val_bar:
                 noisy = noisy.to(device)
                 clean = clean.to(device)
                 den = net(noisy).clamp(0, 1)
-                psnrs.append(psnr(den, clean).item())
+                val_psnr = psnr(den, clean).item()
+                psnrs.append(val_psnr)
+                val_bar.set_postfix(psnr=f"{val_psnr:.2f} dB")
+
         mpsnr = float(np.mean(psnrs)) if psnrs else 0.0
         print(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
 
