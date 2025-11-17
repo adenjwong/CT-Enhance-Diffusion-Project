@@ -212,3 +212,4 @@ data/index_summary.csv
 data/selected_series.csv
 data/noisy_png/
 data/splits/
+outputs/
