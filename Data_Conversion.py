@@ -78,7 +78,7 @@ Caveats
 • Intended for proof-of-concept image enhancement workflows, not clinical.
 """
 
-import os, csv, pydicom
+import os, csv, pydicom, shutil
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -88,7 +88,7 @@ OUT_ROOT = "data/clean_png"
 WINDOW_CENTER = 40  # lung window center
 WINDOW_WIDTH = 400   # lung window width
 
-HU_MIN, HU_MAX = -1024, 3071  # typical clinical span
+HU_MIN, HU_MAX = -1024, 3071
 
 def apply_window(img, center, width):
     low, high = center - width / 2, center + width / 2
@@ -112,13 +112,18 @@ def convert_series(series_path, out_dir):
 
         # Map HU -> uint16 in [0, 65535] (no windowing; avoid saturation)
         hu = np.clip(img, HU_MIN, HU_MAX)
-        arr16 = np.round((hu - HU_MIN) / (HU_MAX - HU_MIN) * 65535.0).astype(np.uint16)
+        arr16 = np.round((hu - HU_MIN) / (HU_MAX - HU_MIN) * 65535.0).astype(">u2")
 
-        # Save 16-bit PNG (mode 'I;16') so later steps can choose any window without clipping
-        Image.fromarray(arr16, mode="I;16").save(os.path.join(out_dir, f"slice_{i:04d}.png"))
+        # Save 16-bit PNG; Pillow infers correct mode from dtype
+        img_pil = Image.fromarray(arr16)
+        img_pil.save(os.path.join(out_dir, f"slice_{i:04d}.png"))
 
 
 def main():
+    if os.path.isdir(OUT_ROOT):
+        print(f"Removing existing clean_png directory: {OUT_ROOT}")
+        shutil.rmtree(OUT_ROOT)
+
     os.makedirs(OUT_ROOT, exist_ok=True)
     with open(SELECT_CSV, newline='') as f:
         reader = csv.DictReader(f)
@@ -129,6 +134,7 @@ def main():
                 print(f"Skipping {patient}: path not found")
                 continue
             out_dir = os.path.join(OUT_ROOT, patient)
+            os.makedirs(out_dir, exist_ok=True)
             convert_series(path, out_dir)
     print("All selected series converted to PNGs.")
 
