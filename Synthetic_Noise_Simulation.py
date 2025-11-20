@@ -96,7 +96,7 @@ Caveats
 - Image-space surrogate (not sinogram/log space), so it ignores view-dependent and reconstruction-kernel correlations, good for POC , not for exact physics fidelity
 """
 
-import os, glob, random
+import os, glob, random, shutil
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
@@ -145,10 +145,16 @@ def add_ldct_like_noise(img01, dose_scale=DOSE_SCALE, read_noise=READ_NOISE):
     return np.clip(noisy, 0, 1)
 
 def main():
+    if os.path.isdir(NOISY_ROOT):
+        print(f"Removing existing noisy_png directory: {NOISY_ROOT}")
+        shutil.rmtree(NOISY_ROOT)
+
+    os.makedirs(NOISY_ROOT, exist_ok=True)
+
     patients = [d for d in sorted(os.listdir(CLEAN_ROOT))
                 if os.path.isdir(os.path.join(CLEAN_ROOT, d))]
     if not patients:
-        print(f"No patient folders found under {CLEAN_ROOT}. Did you run the DICOM→PNG step?")
+        print(f"No patient folders found under {CLEAN_ROOT}. Did you run the DICOM -> PNG step?")
         return
 
     for pid in patients:
