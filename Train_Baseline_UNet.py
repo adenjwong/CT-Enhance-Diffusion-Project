@@ -14,6 +14,10 @@ NOISY_ROOT = "data/noisy_png"
 SPLIT_JSON = "data/splits/split_by_patient.json"
 OUTDIR = "outputs/unet_baseline"
 
+HU_MIN, HU_MAX = -1024, 3071
+WINDOW_CENTER = 40
+WINDOW_WIDTH  = 400
+
 class PairDataset(Dataset):
     def __init__(self, split):
         with open(SPLIT_JSON) as f:
@@ -44,8 +48,19 @@ class PairDataset(Dataset):
 
     def __getitem__(self, idx):
         noisy_path, clean_path = self.pairs[idx]
+
         noisy = to_tensor(Image.open(noisy_path).convert("L"))   # [1,H,W], 0..1
-        clean = to_tensor(Image.open(clean_path).convert("L"))
+
+        arr16 = np.array(Image.open(clean_path), dtype=np.uint16)
+        x01   = arr16.astype(np.float32) / 65535.0
+        hu    = x01 * (HU_MAX - HU_MIN) + HU_MIN
+
+        low  = WINDOW_CENTER - WINDOW_WIDTH / 2.0
+        high = WINDOW_CENTER + WINDOW_WIDTH / 2.0
+        clean01 = np.clip((hu - low) / (high - low), 0.0, 1.0)
+
+        clean = torch.from_numpy(clean01).unsqueeze(0)
+
         return noisy, clean
 
 def conv_block(cin, cout):
