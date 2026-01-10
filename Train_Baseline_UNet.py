@@ -150,9 +150,12 @@ def main():
                 noisy = noisy.to(device)
                 clean = clean.to(device)
                 den = net(noisy).clamp(0, 1)
-                val_psnr = psnr(den, clean).item()
-                psnrs.append(val_psnr)
-                val_bar.set_postfix(psnr=f"{val_psnr:.2f} dB")
+
+                psnr_in  = psnr(noisy, clean).item()
+                psnr_out = psnr(den, clean).item()
+
+                psnrs.append(psnr_out)
+                val_bar.set_postfix(in_psnr=f"{psnr_in:.2f}", out_psnr=f"{psnr_out:.2f}")
 
         mpsnr = float(np.mean(psnrs)) if psnrs else 0.0
         print(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
