@@ -97,7 +97,7 @@ class TinyUNet(nn.Module):
         d1 = self.up1(d2)
         d1 = self.dec1(torch.cat([d1, e1], dim=1))
 
-        return torch.sigmoid(self.out(d1))
+        return self.out(d1)
 
 def psnr(x, y):
     mse = torch.mean((x - y) ** 2)
@@ -115,7 +115,7 @@ def main():
     train_loader = DataLoader(train_ds, batch_size=4, shuffle=True)
     val_loader   = DataLoader(val_ds, batch_size=4, shuffle=False)
 
-    net = TinyUNet(base=32).to(device)
+    net = TinyUNet(base=64).to(device)
     opt = torch.optim.Adam(net.parameters(), lr=1e-3)
     loss_fn = nn.L1Loss()
 
@@ -125,6 +125,7 @@ def main():
     for ep in range(1, epochs + 1):
         net.train()
         running_loss = 0.0
+        seen = 0
         train_bar = tqdm(train_loader, desc=f"Epoch {ep}/{epochs} [train]")
         for noisy, clean in train_bar:
             noisy = noisy.to(device)
@@ -138,8 +139,10 @@ def main():
             opt.step()
 
             running_loss += loss.item()
-            avg_loss = running_loss / (train_bar.n or 1)
+            seen += 1
+            avg_loss = running_loss / seen
             train_bar.set_postfix(loss=f"{avg_loss:.4f}")
+        print("Example weight mean:", net.out.weight.data.mean().item())
 
         # validation
         net.eval()
@@ -149,10 +152,12 @@ def main():
             for noisy, clean in val_bar:
                 noisy = noisy.to(device)
                 clean = clean.to(device)
-                den = net(noisy).clamp(0, 1)
+
+                den = net(noisy)
+                den01 = den.clamp(0, 1)
 
                 psnr_in  = psnr(noisy, clean).item()
-                psnr_out = psnr(den, clean).item()
+                psnr_out = psnr(den01, clean).item()
 
                 psnrs.append(psnr_out)
                 val_bar.set_postfix(in_psnr=f"{psnr_in:.2f}", out_psnr=f"{psnr_out:.2f}")
@@ -164,9 +169,11 @@ def main():
         noisy, clean = next(iter(val_loader))
         noisy = noisy.to(device)
         clean = clean.to(device)
-        den = net(noisy).clamp(0, 1)
 
-        grid = torch.cat([noisy[:4], den[:4], clean[:4]], dim=0)
+        den = net(noisy)
+        den01 = den.clamp(0, 1)
+
+        grid = torch.cat([noisy[:4], den01[:4], clean[:4]], dim=0)
         save_image(grid, os.path.join(OUTDIR, f"val_panels_ep{ep}.png"), nrow=4)
 
         # checkpoint
