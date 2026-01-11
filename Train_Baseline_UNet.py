@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os, glob, json
+from datetime import datetime
 from PIL import Image
 import numpy as np
 import torch, torch.nn as nn
@@ -12,7 +13,10 @@ from tqdm import tqdm
 CLEAN_ROOT = "data/clean_png"
 NOISY_ROOT = "data/noisy_png"
 SPLIT_JSON = "data/splits/split_by_patient.json"
-OUTDIR = "outputs/unet_baseline"
+
+RESULTS_ROOT = "results"
+timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+OUTDIR = os.path.join(RESULTS_ROOT, timestamp)
 
 HU_MIN, HU_MAX = -1024, 3071
 WINDOW_CENTER = 40
@@ -106,7 +110,7 @@ def psnr(x, y):
     return 10.0 * torch.log10(1.0 / mse)
 
 def main():
-    os.makedirs(OUTDIR, exist_ok=True)
+    os.makedirs(OUTDIR, exist_ok=False)
     device = torch.device("cpu")
 
     train_ds = PairDataset("train")
@@ -182,6 +186,7 @@ def main():
             torch.save(net.state_dict(), os.path.join(OUTDIR, "unet_best.pth"))
 
     print("Training done. Best val PSNR:", best_psnr)
+    print("Saved results to:", OUTDIR)
 
 if __name__ == "__main__":
     main()
