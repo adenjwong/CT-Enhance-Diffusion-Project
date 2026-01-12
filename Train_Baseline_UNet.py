@@ -2,6 +2,7 @@
 
 import os, glob, json
 from datetime import datetime
+import logging
 from PIL import Image
 import numpy as np
 import torch, torch.nn as nn
@@ -111,6 +112,18 @@ def psnr(x, y):
 
 def main():
     os.makedirs(OUTDIR, exist_ok=False)
+
+    log_path = os.path.join(OUTDIR, "train.log")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(message)s",
+        handlers=[
+            logging.FileHandler(log_path),
+            logging.StreamHandler()
+        ],
+    )
+    log = logging.getLogger()
+
     device = torch.device("cpu")
 
     train_ds = PairDataset("train")
@@ -146,7 +159,7 @@ def main():
             seen += 1
             avg_loss = running_loss / seen
             train_bar.set_postfix(loss=f"{avg_loss:.4f}")
-        print("Example weight mean:", net.out.weight.data.mean().item())
+        log.info(f"Example weight mean: {net.out.weight.data.mean().item()}")
 
         # validation
         net.eval()
@@ -167,7 +180,7 @@ def main():
                 val_bar.set_postfix(in_psnr=f"{psnr_in:.2f}", out_psnr=f"{psnr_out:.2f}")
 
         mpsnr = float(np.mean(psnrs)) if psnrs else 0.0
-        print(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
+        log.info(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
 
         # save a small qualitative grid
         noisy, clean = next(iter(val_loader))
@@ -185,8 +198,8 @@ def main():
             best_psnr = mpsnr
             torch.save(net.state_dict(), os.path.join(OUTDIR, "unet_best.pth"))
 
-    print("Training done. Best val PSNR:", best_psnr)
-    print("Saved results to:", OUTDIR)
+    log.info(f"Training done. Best val PSNR: {best_psnr}")
+    log.info(f"Saved results to: {OUTDIR}")
 
 if __name__ == "__main__":
     main()
