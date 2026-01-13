@@ -119,11 +119,25 @@ def _gaussian_window(window_size=11, sigma=1.5, device="cpu"):
     window_2d = window_1d.transpose(2, 3) @ window_1d
     return window_2d
 
-def ssim():
-    """
-    Calculate SSIM
-    """
-    return
+def ssim(x, y, window_size=11, sigma=1.5, C1=0.01**2, C2=0.03**2):
+    device = x.device
+    window = _gaussian_window(window_size, sigma, device=device)
+
+    mu_x = F.conv2d(x, window, padding=window_size//2, groups=1)
+    mu_y = F.conv2d(y, window, padding=window_size//2, groups=1)
+
+    mu_x2 = mu_x * mu_x
+    mu_y2 = mu_y * mu_y
+    mu_xy = mu_x * mu_y
+
+    sigma_x2 = F.conv2d(x * x, window, padding=window_size//2, groups=1) - mu_x2
+    sigma_y2 = F.conv2d(y * y, window, padding=window_size//2, groups=1) - mu_y2
+    sigma_xy = F.conv2d(x * y, window, padding=window_size//2, groups=1) - mu_xy
+
+    num = (2 * mu_xy + C1) * (2 * sigma_xy + C2)
+    den = (mu_x2 + mu_y2 + C1) * (sigma_x2 + sigma_y2 + C2)
+    ssim_map = num / (den + 1e-12)
+    return ssim_map.mean()
 
 def main():
     os.makedirs(OUTDIR, exist_ok=False)
