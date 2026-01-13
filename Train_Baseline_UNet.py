@@ -220,7 +220,6 @@ def main():
                 )
 
         mpsnr = float(np.mean(psnrs)) if psnrs else 0.0
-        log.info(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
         mssim = float(np.mean(ssims)) if ssims else 0.0
         log.info(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB | val SSIM = {mssim:.3f}")
 
