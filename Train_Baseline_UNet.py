@@ -179,6 +179,7 @@ def main():
         # validation
         net.eval()
         psnrs = []
+        ssims = []
         val_bar = tqdm(val_loader, desc=f"Epoch {ep}/{epochs} [val]")
         with torch.no_grad():
             for noisy, clean in val_bar:
@@ -192,10 +193,22 @@ def main():
                 psnr_out = psnr(den01, clean).item()
 
                 psnrs.append(psnr_out)
-                val_bar.set_postfix(in_psnr=f"{psnr_in:.2f}", out_psnr=f"{psnr_out:.2f}")
+                
+                ssim_in  = ssim(noisy, clean).item()
+                ssim_out = ssim(den01, clean).item()
+                ssims.append(ssim_out)
+                
+                val_bar.set_postfix(
+                    in_psnr=f"{psnr_in:.2f}",
+                    out_psnr=f"{psnr_out:.2f}",
+                    in_ssim=f"{ssim_in:.3f}",
+                    out_ssim=f"{ssim_out:.3f}",
+                )
 
         mpsnr = float(np.mean(psnrs)) if psnrs else 0.0
         log.info(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB")
+        mssim = float(np.mean(ssims)) if ssims else 0.0
+        log.info(f"Epoch {ep}: val PSNR = {mpsnr:.2f} dB | val SSIM = {mssim:.3f}")
 
         # save a small qualitative grid
         noisy, clean = next(iter(val_loader))
