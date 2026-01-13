@@ -3,6 +3,7 @@
 import os, glob, json
 from datetime import datetime
 import logging
+import torch.nn.functional as F
 from PIL import Image
 import numpy as np
 import torch, torch.nn as nn
@@ -109,6 +110,20 @@ def psnr(x, y):
     if mse <= 1e-12:
         return torch.tensor(99.0, device=x.device)
     return 10.0 * torch.log10(1.0 / mse)
+
+def _gaussian_window(window_size=11, sigma=1.5, device="cpu"):
+    coords = torch.arange(window_size, device=device).float() - window_size // 2
+    g = torch.exp(-(coords ** 2) / (2 * sigma ** 2))
+    g = g / g.sum()
+    window_1d = g.view(1, 1, 1, -1)
+    window_2d = window_1d.transpose(2, 3) @ window_1d
+    return window_2d
+
+def ssim():
+    """
+    Calculate SSIM
+    """
+    return
 
 def main():
     os.makedirs(OUTDIR, exist_ok=False)
