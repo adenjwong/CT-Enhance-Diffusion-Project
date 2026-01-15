@@ -166,6 +166,7 @@ def main():
     loss_fn = nn.L1Loss()
 
     best_psnr = 0.0
+    best_ssim = -1.0
     epochs = 5
 
     for ep in range(1, epochs + 1):
@@ -238,8 +239,11 @@ def main():
         if mpsnr > best_psnr:
             best_psnr = mpsnr
             torch.save(net.state_dict(), os.path.join(OUTDIR, "unet_best.pth"))
+        if mssim > best_ssim:
+            best_ssim = mssim
+            torch.save(net.state_dict(), os.path.join(OUTDIR, "unet_best_ssim.pth"))
 
-    log.info(f"Training done. Best val PSNR: {best_psnr}")
+    log.info(f"Training done. Best val PSNR: {best_psnr} | Best val SSIM: {best_ssim}")
     log.info(f"Saved results to: {OUTDIR}")
 
 if __name__ == "__main__":
